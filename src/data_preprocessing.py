@@ -17,6 +17,29 @@ class DataPreprocessor:
         self.data_path = data_path
         self.log_file = os.path.join(data_path, 'driving_log.csv')
         
+    def get_image_path(self, image_rel_path):
+        """
+        Get full path for an image given relative path from CSV
+        Handles both relative and absolute paths
+        """
+        # If it's already relative (IMG/filename.jpg)
+        if 'IMG' in image_rel_path and not os.path.isabs(image_rel_path):
+            # Make it full path relative to project root
+            return os.path.join(self.data_path, image_rel_path)
+        
+        # If it's an absolute path (C:\...)
+        elif os.path.isabs(image_rel_path):
+            # Extract filename and make relative
+            filename = os.path.basename(image_rel_path)
+            return os.path.join(self.data_path, 'IMG', filename)
+        
+        # If it's just a filename
+        elif os.path.basename(image_rel_path) == image_rel_path:
+            return os.path.join(self.data_path, 'IMG', image_rel_path)
+        
+        # Otherwise, assume it's already correct
+        return image_rel_path
+    
     def load_data(self, include_side_cameras=True, correction=0.2):
         """
         Load driving log data
@@ -28,9 +51,26 @@ class DataPreprocessor:
             # Load CSV with appropriate column names
             columns = ['center', 'left', 'right', 'steering', 
                       'throttle', 'brake', 'speed']
-            df = pd.read_csv(self.log_file, names=columns)
+            
+            # Check if file exists
+            if not os.path.exists(self.log_file):
+                # Try the fixed version
+                fixed_file = self.log_file.replace('.csv', '_fixed.csv')
+                if os.path.exists(fixed_file):
+                    print(f"Using fixed CSV file: {fixed_file}")
+                    df = pd.read_csv(fixed_file, names=columns)
+                else:
+                    print(f"Error: Could not find {self.log_file}")
+                    return None
+            else:
+                df = pd.read_csv(self.log_file, names=columns)
             
             print(f"Successfully loaded {len(df)} samples")
+            
+            # Fix paths in the dataframe
+            df['center'] = df['center'].apply(self.get_image_path)
+            df['left'] = df['left'].apply(self.get_image_path)
+            df['right'] = df['right'].apply(self.get_image_path)
             
             # If using side cameras, add adjusted steering for left/right images
             if include_side_cameras:
@@ -56,7 +96,7 @@ class DataPreprocessor:
             return df
             
         except FileNotFoundError:
-            print(f"Error: Could not find {self.log_file}")
+            print(f"Error: Could not find CSV file")
             print("Please collect data using the Udacity simulator first")
             return None
         except Exception as e:
@@ -78,7 +118,8 @@ class DataPreprocessor:
         # Print distribution
         print("Steering angle distribution:")
         for i in range(len(hist)):
-            print(f"  Bin {i+1}: {bin_edges[i]:.3f} to {bin_edges[i+1]:.3f}: {hist[i]} samples")
+            if hist[i] > 0:
+                print(f"  Bin {i+1}: {bin_edges[i]:.3f} to {bin_edges[i+1]:.3f}: {hist[i]} samples")
         
         # Remove samples from over-represented bins
         balanced_indices = []
@@ -190,22 +231,36 @@ def test_preprocessing():
     """Test the preprocessing functions"""
     print("Testing data preprocessing module...")
     
-    # Create a sample image for testing
-    test_image = np.random.randint(0, 255, (160, 320, 3), dtype=np.uint8)
-    cv2.imwrite('test_image.jpg', test_image)
+    # Test with the fixed CSV
+    preprocessor = DataPreprocessor('../data/training/')
     
-    # Test preprocessing
-    preprocessor = DataPreprocessor()
-    processed = preprocessor.preprocess_image('test_image.jpg')
+    # Try loading data
+    data = preprocessor.load_data(include_side_cameras=False)
     
-    if processed is not None:
-        print(f"Original shape: {test_image.shape}")
-        print(f"Processed shape: {processed.shape}")
-        print("Preprocessing test passed!")
-    
-    # Clean up
-    if os.path.exists('test_image.jpg'):
-        os.remove('test_image.jpg')
+    if data is not None:
+        print(f"Successfully loaded {len(data)} samples")
+        
+        # Test image loading
+        if len(data) > 0:
+            first_image = data['center'].iloc[0]
+            print(f"\nTesting first image: {first_image}")
+            
+            # Check if file exists
+            if os.path.exists(first_image):
+                print("✓ File exists")
+                
+                # Try preprocessing
+                processed = preprocessor.preprocess_image(first_image)
+                if processed is not None:
+                    print(f"✓ Preprocessing successful")
+                    print(f"  Shape: {processed.shape}")
+                    print(f"  Range: [{processed.min():.3f}, {processed.max():.3f}]")
+                else:
+                    print("✗ Preprocessing failed")
+            else:
+                print(f"✗ File doesn't exist: {first_image}")
+    else:
+        print("Failed to load data")
 
 if __name__ == "__main__":
     test_preprocessing()
