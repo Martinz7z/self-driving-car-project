@@ -1,7 +1,5 @@
-"""
-CNN Model for Self-Driving Car
-Based on NVIDIA's "End to End Learning for Self-Driving Cars" paper
-"""
+# model.py - My neural network for self-driving car
+# Student: Martin Zachariasz
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (
@@ -14,122 +12,102 @@ from tensorflow.keras.regularizers import l2
 import tensorflow as tf
 
 def create_nvidia_model(input_shape=(66, 200, 3)):
-    """
-    Creates the NVIDIA CNN model architecture
-    
-    Reference: 
-    Bojarski, M., et al. (2016). End to End Learning for Self-Driving Cars
-    
-    Architecture:
-    - Input: 66x200x3 (YUV image)
-    - Normalization layer
-    - 5 Convolutional layers
-    - 4 Fully connected layers
-    - Output: Steering angle
-    """
+    # This is the NVIDIA model from their paper
     model = Sequential()
     
-    # Input normalization
+    # Normalize the input images
     model.add(Lambda(lambda x: x / 127.5 - 1.0, 
                      input_shape=input_shape,
                      name='normalization'))
     
-    # Convolutional layers (as per NVIDIA paper)
-    # Layer 1: 24 filters, 5x5 kernel, 2x2 stride
+    # First convolutional layer
     model.add(Conv2D(24, (5, 5), strides=(2, 2), 
                      activation='elu',
                      kernel_regularizer=l2(0.001),
                      name='conv1'))
     
-    # Layer 2: 36 filters, 5x5 kernel, 2x2 stride
+    # Second convolutional layer
     model.add(Conv2D(36, (5, 5), strides=(2, 2), 
                      activation='elu',
                      kernel_regularizer=l2(0.001),
                      name='conv2'))
     
-    # Layer 3: 48 filters, 5x5 kernel, 2x2 stride
+    # Third convolutional layer
     model.add(Conv2D(48, (5, 5), strides=(2, 2), 
                      activation='elu',
                      kernel_regularizer=l2(0.001),
                      name='conv3'))
     
-    # Layer 4: 64 filters, 3x3 kernel
+    # Fourth convolutional layer
     model.add(Conv2D(64, (3, 3), activation='elu',
                      kernel_regularizer=l2(0.001),
                      name='conv4'))
     
-    # Layer 5: 64 filters, 3x3 kernel
+    # Fifth convolutional layer
     model.add(Conv2D(64, (3, 3), activation='elu',
                      kernel_regularizer=l2(0.001),
                      name='conv5'))
     
-    # Flatten for fully connected layers
+    # Flatten to connect to dense layers
     model.add(Flatten(name='flatten'))
     
-    # Dropout to prevent overfitting
+    # Dropout helps prevent overfitting
     model.add(Dropout(0.5, name='dropout1'))
     
-    # Fully connected layers
-    # Layer 6: 100 neurons
+    # First dense layer
     model.add(Dense(100, activation='elu',
                     kernel_regularizer=l2(0.001),
                     name='fc1'))
     
-    # Layer 7: 50 neurons
+    # Second dense layer
     model.add(Dense(50, activation='elu',
                     kernel_regularizer=l2(0.001),
                     name='fc2'))
     
-    # Layer 8: 10 neurons
+    # Third dense layer
     model.add(Dense(10, activation='elu',
                     kernel_regularizer=l2(0.001),
                     name='fc3'))
     
-    # Output layer: 1 neuron (steering angle)
+    # Output layer - steering angle
     model.add(Dense(1, name='output'))
     
     return model
 
 def create_improved_model(input_shape=(66, 200, 3)):
-    """
-    Enhanced version with additional improvements:
-    1. Batch normalization for faster training
-    2. Additional dropout layers
-    3. ELU activation for better performance
-    4. L2 regularization to prevent overfitting
-    """
+    # This is an improved version with batch normalization
     model = Sequential()
     
-    # Input normalization
+    # Normalize input
     model.add(Lambda(lambda x: x / 127.5 - 1.0, 
                      input_shape=input_shape,
                      name='normalization'))
     
-    # Convolutional Block 1
+    # First block with batch norm
     model.add(Conv2D(24, (5, 5), strides=(2, 2), 
                      padding='valid', activation='elu',
                      kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     
-    # Convolutional Block 2
+    # Second block with batch norm
     model.add(Conv2D(36, (5, 5), strides=(2, 2), 
                      padding='valid', activation='elu',
                      kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     
-    # Convolutional Block 3
+    # Third block with batch norm
     model.add(Conv2D(48, (5, 5), strides=(2, 2), 
                      padding='valid', activation='elu',
                      kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     
-    # Convolutional Block 4
+    # Fourth block with batch norm
     model.add(Conv2D(64, (3, 3), padding='valid', 
                      activation='elu',
                      kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     
-    # Convolutional Block 5
+    # Fifth block with batch norm
     model.add(Conv2D(64, (3, 3), padding='valid', 
                      activation='elu',
                      kernel_regularizer=l2(0.001)))
@@ -141,7 +119,7 @@ def create_improved_model(input_shape=(66, 200, 3)):
     # Dropout
     model.add(Dropout(0.5))
     
-    # Fully connected layers
+    # Dense layers with dropout
     model.add(Dense(100, activation='elu',
                     kernel_regularizer=l2(0.001)))
     model.add(Dropout(0.3))
@@ -159,45 +137,45 @@ def create_improved_model(input_shape=(66, 200, 3)):
     return model
 
 def compile_model(model, learning_rate=0.0001):
-    """
-    Compile the model with appropriate optimizer and loss
-    """
+    # Set up the model for training
     optimizer = Adam(learning_rate=learning_rate)
     model.compile(optimizer=optimizer,
-                  loss='mse',  # Mean Squared Error for regression
-                  metrics=['mae'])  # Mean Absolute Error
+                  loss='mse',
+                  metrics=['mae'])
     
     return model
 
 def print_model_summary(model):
-    """Print model summary and return parameter count"""
+    # Show model details
     model.summary()
     
-    # Calculate total parameters
-    trainable_params = np.sum([tf.keras.backend.count_params(w) for w in model.trainable_weights])
-    non_trainable_params = np.sum([tf.keras.backend.count_params(w) for w in model.non_trainable_weights])
+    # Count parameters
+    trainable_params = sum([w.numpy().size for w in model.trainable_weights])
+    non_trainable_params = sum([w.numpy().size for w in model.non_trainable_weights])
     
-    print(f"\nModel Statistics:")
-    print(f"  Trainable parameters: {trainable_params:,}")
-    print(f"  Non-trainable parameters: {non_trainable_params:,}")
-    print(f"  Total parameters: {trainable_params + non_trainable_params:,}")
+    print(f"\nModel parameters:")
+    print(f"  Trainable: {trainable_params:,}")
+    print(f"  Non-trainable: {non_trainable_params:,}")
+    print(f"  Total: {trainable_params + non_trainable_params:,}")
     
     return trainable_params
 
 if __name__ == "__main__":
-    print("=== Testing Model Creation ===\n")
+    print("Testing model creation")
     
-    # Test creating the NVIDIA model
-    print("1. Creating NVIDIA model...")
+    # Test NVIDIA model
+    print("\n1. Creating NVIDIA model...")
     nvidia_model = create_nvidia_model()
     nvidia_model = compile_model(nvidia_model, learning_rate=0.0001)
-    print("   NVIDIA model created successfully")
+    print("   NVIDIA model created")
     
+    # Test improved model
     print("\n2. Creating improved model...")
     improved_model = create_improved_model()
     improved_model = compile_model(improved_model, learning_rate=0.0001)
-    print("   Improved model created successfully")
+    print("   Improved model created")
     
+    # Show summaries
     print("\n3. Model summaries:")
     print("\nNVIDIA Model:")
     print_model_summary(nvidia_model)
@@ -205,4 +183,4 @@ if __name__ == "__main__":
     print("\nImproved Model:")
     print_model_summary(improved_model)
     
-    print("\n=== Test Complete ===")
+    print("\nDone")
